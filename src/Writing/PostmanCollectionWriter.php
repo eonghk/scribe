@@ -79,6 +79,13 @@ class PostmanCollectionWriter
             case "bearer":
                 return [
                     'type' => 'bearer',
+                    'bearer' => [
+                        [
+                            'key'   => $this->config->get('auth.name'),
+                            'value' => $this->config->get('auth.placeholder'),
+                            'type'  => 'string',
+                        ],
+                    ],
                 ];
             default:
                 return [
