@@ -80,10 +80,11 @@ class PostmanCollectionWriter
                 'bearer' => [
                     [
                         'key'   => $this->config->get('auth.name'),
-                        'value' => $this->config->get('auth.use_value'),
+                        'value' => $this->config->get('auth.placeholder'),
                         'type'  => 'string',
                     ],
                 ],
+                'version' => 'own',
             ],
             default => [
                 'type' => 'apikey',
