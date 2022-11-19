@@ -81,7 +81,7 @@ class PostmanCollectionWriter
                     'type' => 'bearer',
                     'bearer' => [
                         [
-                            'key'   => $this->config->get('auth.name'),
+                            'key'   => 'token',
                             'value' => $this->config->get('auth.placeholder'),
                             'type'  => 'string',
                         ],
