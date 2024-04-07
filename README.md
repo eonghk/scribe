@@ -24,12 +24,12 @@ Scribe helps you generate API documentation for humans from your Laravel/Lumen/[
   - Add custom strategies to adjust how data is extracted
   - Statically define extra endpoints or information that isn't in your codebase
 
-> 👋 Scribe helps you generate docs automatically, but if you really want to make friendly, maintainable and testable API docs, there's some more things you need to know. So I made [a course](https://apidocsfordevs.com?utm_source=scribe-laravel&utm_medium=referral&utm_campaign=none) for you.🤗
+> 👋 Scribe helps you generate docs automatically, but if you really want to make friendly, maintainable and testable API docs, there's some more things you need to know. So I made [a course](https://shalvah.teachable.com/p/api-documentation-for-developers?utm_source=scribe-laravel&utm_medium=referral&utm_campaign=none) for you.🤗
 
 ## Documentation
 Check out the documentation at [scribe.knuckles.wtf/laravel](http://scribe.knuckles.wtf/laravel).
 
-If you're coming from `mpociot/laravel-apidoc-generator`, first [migrate to v3](http://scribe.knuckles.wtf/blog/laravel/3.x/migrating-apidoc)`, then [to v4](http://scribe.knuckles.wtf/blog/laravel/migrating-v4).
+If you're coming from `mpociot/laravel-apidoc-generator`, first migrate [to v3](https://scribe.knuckles.wtf/laravel/3.x/migrating-apidoc), then [to v4](https://scribe.knuckles.wtf/laravel/migrating-v4).
 
 ## Contributing
 Contributing is easy! See our [contribution guide](https://scribe.knuckles.wtf/laravel/contributing).

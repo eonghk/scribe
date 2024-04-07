@@ -2,22 +2,19 @@
 
 namespace Knuckles\Scribe\Tests\Unit;
 
-use DMS\PHPUnitExtensions\ArraySubset\ArraySubsetAsserts;
 use Faker\Factory;
 use Illuminate\Support\Arr;
 use Knuckles\Camel\Camel;
 use Knuckles\Camel\Output\OutputEndpointData;
+use Knuckles\Scribe\Tests\BaseUnitTest;
 use Knuckles\Scribe\Tools\DocumentationConfig;
 use Knuckles\Scribe\Writing\OpenAPISpecWriter;
-use PHPUnit\Framework\TestCase;
 
 /**
  * See https://swagger.io/specification/
  */
-class OpenAPISpecWriterTest extends TestCase
+class OpenAPISpecWriterTest extends BaseUnitTest
 {
-    use ArraySubsetAsserts;
-
     protected $config = [
         'title' => 'My Testy Testes API',
         'description' => 'All about testy testes.',
@@ -80,8 +77,14 @@ class OpenAPISpecWriterTest extends TestCase
         $endpointData1 = $this->createMockEndpointData(['uri' => 'path1', 'httpMethods' => ['GET'], 'metadata.authenticated' => true]);
         $endpointData2 = $this->createMockEndpointData(['uri' => 'path1', 'httpMethods' => ['POST'], 'metadata.authenticated' => false]);
         $groups = [$this->createGroup([$endpointData1, $endpointData2])];
-
-        $config = array_merge($this->config, ['auth' => ['enabled' => true, 'in' => 'bearer']]);
+        $extraInfo = "When stuck trying to authenticate, have a coffee!";
+        $config = array_merge($this->config, [
+            'auth' => [
+                'enabled' => true,
+                'in' => 'bearer',
+                'extra_info' => $extraInfo,
+            ],
+        ]);
         $writer = new OpenAPISpecWriter(new DocumentationConfig($config));
         $results = $writer->generateSpecContent($groups);
 
@@ -89,6 +92,7 @@ class OpenAPISpecWriterTest extends TestCase
         $this->assertArrayHasKey('default', $results['components']['securitySchemes']);
         $this->assertEquals('http', $results['components']['securitySchemes']['default']['type']);
         $this->assertEquals('bearer', $results['components']['securitySchemes']['default']['scheme']);
+        $this->assertEquals($extraInfo, $results['components']['securitySchemes']['default']['description']);
         $this->assertCount(1, $results['security']);
         $this->assertCount(1, $results['security'][0]);
         $this->assertArrayHasKey('default', $results['security'][0]);
@@ -97,13 +101,21 @@ class OpenAPISpecWriterTest extends TestCase
         $this->assertCount(0, $results['paths']['/path1']['post']['security']);
 
         // Next try: auth with a query parameter
-        $config = array_merge($this->config, ['auth' => ['enabled' => true, 'in' => 'query', 'name' => 'token']]);
+        $config = array_merge($this->config, [
+            'auth' => [
+                'enabled' => true,
+                'in' => 'query',
+                'name' => 'token',
+                'extra_info' => $extraInfo,
+            ],
+        ]);
         $writer = new OpenAPISpecWriter(new DocumentationConfig($config));
         $results = $writer->generateSpecContent($groups);
 
         $this->assertCount(1, $results['components']['securitySchemes']);
         $this->assertArrayHasKey('default', $results['components']['securitySchemes']);
         $this->assertEquals('apiKey', $results['components']['securitySchemes']['default']['type']);
+        $this->assertEquals($extraInfo, $results['components']['securitySchemes']['default']['description']);
         $this->assertEquals($config['auth']['name'], $results['components']['securitySchemes']['default']['name']);
         $this->assertEquals('query', $results['components']['securitySchemes']['default']['in']);
         $this->assertCount(1, $results['security']);

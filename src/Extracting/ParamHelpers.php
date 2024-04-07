@@ -4,6 +4,7 @@ namespace Knuckles\Scribe\Extracting;
 
 use Faker\Factory;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
 trait ParamHelpers
@@ -46,6 +47,10 @@ trait ParamHelpers
 
     protected function generateDummyValue(string $type, array $hints = [])
     {
+        if(!empty($hints['enumValues'])) {
+            return Arr::random($hints['enumValues']);
+        }
+
         $fakeFactory = $this->getDummyValueGenerator($type, $hints);
 
         return $fakeFactory();
@@ -231,14 +236,32 @@ trait ParamHelpers
      */
     protected function parseExampleFromParamDescription(string $description, string $type): array
     {
+        $exampleWasSpecified = false;
         $example = null;
+        $enumValues = [];
+
         if (preg_match('/(.*)\bExample:\s*([\s\S]+)\s*/s', $description, $content)) {
+            $exampleWasSpecified = true;
             $description = trim($content[1]);
 
-            // Examples are parsed as strings by default, we need to cast them properly
-            $example = $this->castToType($content[2], $type);
+            if ($content[2] == 'null') {
+                // If we intentionally put null as example we return null as example
+                $example = null;
+            } else {
+                // Examples are parsed as strings by default, we need to cast them properly
+                $example = $this->castToType($content[2], $type);
+            }
         }
 
-        return [$description, $example];
+        if (preg_match('/(.*)\bEnum:\s*([\s\S]+)\s*/s', $description, $content)) {
+            $description = trim($content[1]);
+
+            $enumValues = array_map(
+                fn ($value) => $this->castToType(trim($value), $type),
+                explode(',', rtrim(trim($content[2]), '.'))
+            );
+        }
+
+        return [$description, $example, $enumValues, $exampleWasSpecified];
     }
 }

@@ -41,6 +41,7 @@
         </label>
     @elseif($isList)
         <input type="{{ $inputType }}" style="display: none"
+               @if($inputType === 'number')step="any"@endif
                name="{{ $fullName."[0]" }}" @if($class)class="{{ $class }}"@endif
                data-endpoint="{{ $endpointId }}"
                data-component="{{ $component }}">
@@ -50,6 +51,7 @@
                data-component="{{ $component }}">
     @else
         <input type="{{ $inputType }}" style="display: none"
+               @if($inputType === 'number')step="any"@endif
                name="{{ $fullName }}" @if($class)class="{{ $class }}"@endif
                data-endpoint="{{ $endpointId }}"
                value="{!! (isset($example) && (is_string($example) || is_numeric($example))) ? $example : '' !!}"
@@ -67,3 +69,7 @@
     }
 @endphp
 {!! Parsedown::instance()->text(trim($description)) !!}
+@if(!empty($enumValues))
+Must be one of:
+<ul style="list-style-type: square;">{!! implode(" ", array_map(fn($val) => "<li><code>$val</code></li>", $enumValues)) !!}</ul>
+@endif

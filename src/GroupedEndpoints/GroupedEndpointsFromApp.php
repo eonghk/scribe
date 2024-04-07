@@ -2,7 +2,6 @@
 
 namespace Knuckles\Scribe\GroupedEndpoints;
 
-use Illuminate\Routing\Route;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -18,8 +17,9 @@ use Knuckles\Scribe\Matching\RouteMatcherInterface;
 use Knuckles\Scribe\Tools\ConsoleOutputUtils as c;
 use Knuckles\Scribe\Tools\DocumentationConfig;
 use Knuckles\Scribe\Tools\ErrorHandlingUtils as e;
-use Knuckles\Scribe\Tools\Utils as u;
+use Knuckles\Scribe\Tools\PathConfig;
 use Knuckles\Scribe\Tools\Utils;
+use Knuckles\Scribe\Tools\Utils as u;
 use Mpociot\Reflection\DocBlock;
 use Mpociot\Reflection\DocBlock\Tag;
 use ReflectionClass;
@@ -34,14 +34,15 @@ class GroupedEndpointsFromApp implements GroupedEndpointsContract
     public static string $cacheDir;
 
     public function __construct(
-        private GenerateDocumentation $command, private RouteMatcherInterface $routeMatcher,
-        private bool $preserveUserChanges = true, protected string $docsName = 'scribe'
-    )
-    {
+        private GenerateDocumentation $command,
+        private RouteMatcherInterface $routeMatcher,
+        protected PathConfig $paths,
+        private bool $preserveUserChanges = true
+    ) {
         $this->docConfig = $command->getDocConfig();
 
-        static::$camelDir = Camel::camelDir($this->docsName);
-        static::$cacheDir = Camel::cacheDir($this->docsName);
+        static::$camelDir = Camel::camelDir($this->paths);
+        static::$cacheDir = Camel::cacheDir($this->paths);
     }
 
     public function get(): array
@@ -282,7 +283,7 @@ class GroupedEndpointsFromApp implements GroupedEndpointsContract
 
     protected function makeApiDetails(): ApiDetails
     {
-        return new ApiDetails($this->docConfig, !$this->command->option('force'), $this->docsName);
+        return new ApiDetails($this->paths, $this->docConfig, !$this->command->option('force'));
     }
 
     /**

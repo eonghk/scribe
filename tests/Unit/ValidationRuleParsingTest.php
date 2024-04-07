@@ -4,6 +4,7 @@ namespace Knuckles\Scribe\Tests\Unit;
 
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Translation\Translator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Knuckles\Scribe\Extracting\ParsesValidationRules;
@@ -68,8 +69,8 @@ class ValidationRuleParsingTest extends BaseLaravelTest
             'in_param' => ['numeric', Rule::in([3,5,6])]
         ]);
         $this->assertEquals(
-            'Must be one of <code>3</code>, <code>5</code>, or <code>6</code>.',
-            $results['in_param']['description']
+            [3, 5, 6],
+            $results['in_param']['enumValues']
         );
     }
 
@@ -110,6 +111,17 @@ class ValidationRuleParsingTest extends BaseLaravelTest
         $this->assertEquals('string[]', $results['array_of_objects_with_array[].another[].one.field1']['type']);
         $this->assertEquals('integer', $results['array_of_objects_with_array[].another[].one.field2']['type']);
         $this->assertEquals('number', $results['array_of_objects_with_array[].another[].two.field2']['type']);
+
+        $ruleset = [
+            '*.foo' => 'required|array',
+            '*.foo.*' => 'required|array',
+            '*.foo.*.bar' => 'required',
+        ];
+        $results = $this->strategy->parse($ruleset);
+        $this->assertCount(3, $results);
+        $this->assertEquals('object', $results['*']['type']);
+        $this->assertEquals('object[]', $results['*.foo']['type']);
+        $this->assertEquals('string', $results['*.foo[].bar']['type']);
     }
 
     public static function supportedRules()
@@ -228,8 +240,9 @@ class ValidationRuleParsingTest extends BaseLaravelTest
             ['in_param' => 'in:3,5,6'],
             ['in_param' => ['description' => $description]],
             [
-                'description' => "$description. Must be one of <code>3</code>, <code>5</code>, or <code>6</code>.",
+                'description' => $description.".",
                 'type' => 'string',
+                'enumValues' => [3,5,6]
             ],
         ];
         yield 'not_in' => [
@@ -529,12 +542,17 @@ class ValidationRuleParsingTest extends BaseLaravelTest
         }
 
         $results = $this->strategy->parse([
-            'enum' => ['required', Rule::enum(Fixtures\TestStringBackedEnum::class)],
+            'enum' => [
+                'required',
+                new \Illuminate\Validation\Rules\Enum(Fixtures\TestStringBackedEnum::class),
+                // Not supported in Laravel 8
+                // Rule::enum(Fixtures\TestStringBackedEnum::class)
+            ],
         ]);
         $this->assertEquals('string', $results['enum']['type']);
         $this->assertEquals(
-            'Must be one of <code>red</code>, <code>green</code>, or <code>blue</code>.',
-            $results['enum']['description']
+            ['red', 'green', 'blue'],
+            $results['enum']['enumValues']
         );
         $this->assertTrue(in_array(
             $results['enum']['example'],
@@ -543,12 +561,17 @@ class ValidationRuleParsingTest extends BaseLaravelTest
 
 
         $results = $this->strategy->parse([
-            'enum' => ['required', Rule::enum(Fixtures\TestIntegerBackedEnum::class)],
+            'enum' => [
+                'required',
+                new \Illuminate\Validation\Rules\Enum(Fixtures\TestIntegerBackedEnum::class),
+                // Not supported in Laravel 8
+                // Rule::enum(Fixtures\TestIntegerBackedEnum::class)
+            ],
         ]);
         $this->assertEquals('integer', $results['enum']['type']);
         $this->assertEquals(
-            'Must be one of <code>1</code>, <code>2</code>, or <code>3</code>.',
-            $results['enum']['description']
+            [1, 2, 3],
+            $results['enum']['enumValues']
         );
         $this->assertTrue(in_array(
             $results['enum']['example'],
@@ -556,19 +579,50 @@ class ValidationRuleParsingTest extends BaseLaravelTest
         ));
 
         $results = $this->strategy->parse([
-            'enum' => ['required', Rule::enum(Fixtures\TestStringBackedEnum::class)],
+            'enum' => [
+                'required',
+                new \Illuminate\Validation\Rules\Enum(Fixtures\TestStringBackedEnum::class),
+                // Not supported in Laravel 8
+                // Rule::enum(Fixtures\TestStringBackedEnum::class),
+            ],
         ], [
             'enum' => ['description' => 'A description'],
         ]);
         $this->assertEquals('string', $results['enum']['type']);
         $this->assertEquals(
-            'A description. Must be one of <code>red</code>, <code>green</code>, or <code>blue</code>.',
+            'A description.',
             $results['enum']['description']
         );
         $this->assertTrue(in_array(
             $results['enum']['example'],
             array_map(fn ($case) => $case->value, Fixtures\TestStringBackedEnum::cases())
         ));
+    }
+
+    /** @test */
+    public function can_translate_validation_rules_with_types_with_translator_without_array_support()
+    {
+        // Single line DocComment
+        $ruleset = [
+            'nested' => [
+                'string', 'max:20',
+            ],
+        ];
+
+        $results = $this->strategy->parse($ruleset);
+
+        $this->assertEquals('Must not be greater than 20 characters.', $results['nested']['description']);
+
+        $this->app->extend('translator', function ($command, $app) {
+            $loader = $app['translation.loader'];
+            $locale = $app['config']['app.locale'];
+            return new DummyTranslator($loader, $locale);
+        });
+
+        $results = $this->strategy->parse($ruleset);
+
+        $this->assertEquals('successfully translated by concatenated string.', $results['nested']['description']);
+
     }
 }
 
@@ -644,5 +698,17 @@ if ($laravel10Rules) {
                 'description' => 'This is a custom rule.',
             ];
         }
+    }
+}
+
+class DummyTranslator extends Translator
+{
+    public function get($key, array $replace = [], $locale = null, $fallback = true)
+    {
+        if ($key === 'validation.max.string') {
+            return 'successfully translated by concatenated string';
+        }
+
+        return $key;
     }
 }

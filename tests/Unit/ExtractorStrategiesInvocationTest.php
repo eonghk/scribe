@@ -2,33 +2,18 @@
 
 namespace Knuckles\Scribe\Tests\Unit;
 
-use DMS\PHPUnitExtensions\ArraySubset\ArraySubsetAsserts;
 use Illuminate\Routing\Route;
 use Knuckles\Camel\Extraction\ExtractedEndpointData;
 use Knuckles\Scribe\Extracting\Extractor;
 use Knuckles\Scribe\Extracting\Strategies\Strategy;
 use Knuckles\Scribe\ScribeServiceProvider;
+use Knuckles\Scribe\Tests\BaseUnitTest;
 use Knuckles\Scribe\Tests\Fixtures\TestController;
 use Knuckles\Scribe\Tools\DocumentationConfig;
-use PHPUnit\Framework\TestCase;
 
-class ExtractorPluginSystemTest extends TestCase
+class ExtractorStrategiesInvocationTest extends BaseUnitTest
 {
-    use ArraySubsetAsserts;
-
-    /** @var \Knuckles\Scribe\Extracting\Extractor|null */
-    protected $generator;
-
-    protected function getPackageProviders($app)
-    {
-        $providers = [
-            ScribeServiceProvider::class,
-        ];
-        if (class_exists(\Dingo\Api\Provider\LaravelServiceProvider::class)) {
-            $providers[] = \Dingo\Api\Provider\LaravelServiceProvider::class;
-        }
-        return $providers;
-    }
+    protected ?Extractor $generator;
 
     protected function tearDown(): void
     {
@@ -48,7 +33,6 @@ class ExtractorPluginSystemTest extends TestCase
                 'bodyParameters' => [
                     EmptyStrategy1::class,
                 ],
-                'responses' => [], // Making this empty so the Laravel-dependent strategies are not called
             ],
         ];
         $this->processRoute($config);
@@ -56,6 +40,97 @@ class ExtractorPluginSystemTest extends TestCase
         $this->assertTrue(EmptyStrategy1::$called);
         $this->assertTrue(NotDummyMetadataStrategy::$called);
         $this->assertFalse(EmptyStrategy2::$called);
+    }
+
+    /** @test */
+    public function supports_override_tuples()
+    {
+        $config = [
+            'strategies' => [
+                'headers' => [
+                    DummyHeaderStrategy::class,
+                    [
+                        'override',
+                        ['Content-Type' => 'application/xml'],
+                    ]
+                ],
+                'bodyParameters' => [],
+            ],
+        ];
+
+        $endpointData = $this->processRoute($config);
+
+        $this->assertEquals([
+            'Accept' => 'application/form-data',
+            'Content-Type' => 'application/xml',
+        ], $endpointData->headers);
+    }
+
+
+    /** @test */
+    public function supports_strategy_settings_tuples()
+    {
+        $config = [
+            'strategies' => [
+                'headers' => [
+                    [
+                        DummyHeaderStrategy::class,
+                        ['use_this_content_type' => 'text/plain'],
+                    ]
+                ],
+                'bodyParameters' => [],
+            ],
+        ];
+
+        $endpointData = $this->processRoute($config);
+
+        $this->assertEquals([
+            'Accept' => 'application/form-data',
+            'Content-Type' => 'text/plain',
+        ], $endpointData->headers);
+    }
+
+    /** @test */
+    public function respects_strategy_s_only_setting()
+    {
+        $config = [
+            'strategies' => [
+                'bodyParameters' => [
+                    [EmptyStrategy1::class, ['only' => 'GET /test']]
+                ],
+            ],
+        ];
+        $this->processRoute($config);
+        $this->assertFalse(EmptyStrategy1::$called);
+
+        $config['strategies']['bodyParameters'][0] =
+            [EmptyStrategy1::class, ['only' => ['GET api/*']]];
+        $this->processRoute($config);
+        $this->assertTrue(EmptyStrategy1::$called);
+    }
+
+    /** @test */
+    public function respects_strategy_s_except_setting()
+    {
+        $config = [
+            'strategies' => [
+                'bodyParameters' => [
+                    [EmptyStrategy1::class, ['except' => 'GET /api*']]
+                ],
+            ],
+        ];
+        $this->processRoute($config);
+        $this->assertFalse(EmptyStrategy1::$called);
+
+        $config['strategies']['bodyParameters'][0] =
+            [EmptyStrategy1::class, ['except' => ['*']]];
+        $this->processRoute($config);
+        $this->assertFalse(EmptyStrategy1::$called);
+
+        $config['strategies']['bodyParameters'][0] =
+            [EmptyStrategy1::class, ['except' => []]];
+        $this->processRoute($config);
+        $this->assertTrue(EmptyStrategy1::$called);
     }
 
     /** @test */
@@ -91,8 +166,6 @@ class ExtractorPluginSystemTest extends TestCase
         $config = [
             'strategies' => [
                 'metadata' => [PartialDummyMetadataStrategy1::class, PartialDummyMetadataStrategy2::class],
-                'bodyParameters' => [],
-                'responses' => [],
             ],
         ];
         $parsed = $this->processRoute($config);
@@ -113,8 +186,6 @@ class ExtractorPluginSystemTest extends TestCase
         $config = [
             'strategies' => [
                 'metadata' => [PartialDummyMetadataStrategy2::class],
-                'bodyParameters' => [],
-                'responses' => [],
             ],
         ];
         $parsed = $this->processRoute($config);
@@ -181,9 +252,11 @@ class ExtractorPluginSystemTest extends TestCase
         $this->assertArraySubset($expectedMetadata, $parsed->metadata->toArray());
     }
 
-    protected function processRoute(array $config): ExtractedEndpointData
+    protected function processRoute(
+        array $config, $routeMethod = "GET", $routePath = "/api/test", $routeName = "dummy"
+    ): ExtractedEndpointData
     {
-        $route = $this->createRoute('GET', '/api/test', 'dummy');
+        $route = $this->createRoute($routeMethod, $routePath, $routeName);
         $extractor = new Extractor(new DocumentationConfig($config));
         return $extractor->processRoute($route);
     }
@@ -214,6 +287,17 @@ class EmptyStrategy2 extends Strategy
     {
         static::$called = true;
         return [];
+    }
+}
+
+class DummyHeaderStrategy extends Strategy
+{
+    public function __invoke(ExtractedEndpointData $endpointData, array $settings = []): ?array
+    {
+        return [
+            'Accept' => 'application/form-data',
+            'Content-Type' => $settings['use_this_content_type'] ?? 'application/form-data',
+        ];
     }
 }
 

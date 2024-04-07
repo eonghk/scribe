@@ -80,7 +80,6 @@ class PostmanCollectionWriter
                 'bearer' => [
                     [
                         'key'   => $this->config->get('auth.name'),
-                        'value' => $this->config->get('auth.use_value'),
                         'type'  => 'string',
                     ],
                 ],
@@ -298,6 +297,16 @@ class PostmanCollectionWriter
                         'description' => strip_tags($parameterData->description),
                         // Default query params to disabled if they aren't required and have empty values
                         'disabled' => !$parameterData->required && empty($parameterData->example),
+                    ];
+                }
+                // If there are no values, add one entry so the parameter shows up in the Postman UI.
+                if (empty($values)) {
+                    $query[] = [
+                        'key' => "{$name}[]",
+                        'value' => '',
+                        'description' => strip_tags($parameterData->description),
+                        // Default query params to disabled if they aren't required and have empty values
+                        'disabled' => true,
                     ];
                 }
             } else {

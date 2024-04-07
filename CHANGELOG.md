@@ -12,6 +12,145 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Removed
 
+# 4.35.0 (26 March 2024)
+## Modified
+- Allow examples to be shown in response fields [#825](https://github.com/knuckleswtf/scribe/pull/825)
+
+## Fixed
+- Try It Out: send numbers in JSON as float, not strings [#830](https://github.com/knuckleswtf/scribe/pull/830)
+- Fix "No such file or directory" error [#829](https://github.com/knuckleswtf/scribe/pull/829)
+- Fix translating rules with translation engines that don't return arrays [#826](https://github.com/knuckleswtf/scribe/pull/826)
+
+# 4.34.0 (15 March 2024)
+## Added
+- Laravel 11 compatibility [#812](https://github.com/knuckleswtf/scribe/pull/812)
+
+## Modified
+- Instantiate some classes via service container for easier overriding. [#822](https://github.com/knuckleswtf/scribe/pull/822)
+
+# 4.33.0 (29 February 2024)
+## Fixed
+- List enums for array items in OpenAPI spec [#818](https://github.com/knuckleswtf/scribe/pull/818)
+- UI fix for `elements` theme [#815](https://github.com/knuckleswtf/scribe/pull/818)
+
+# 4.32.0 (20 February 2024)
+Support nikic/php-parser v5
+
+# 4.31.0 (20 February 2024)
+Last version with support for nikic/php-parser v4
+
+# 4.29.0 (29 December 2023)
+## Added
+- **More external UIs**: [Stoplight Elements](https://github.com/stoplightio/elements) [#780](https://github.com/knuckleswtf/scribe/pull/780)
+- Support `try_it_out` and `logo` config options in rapi-doc external UI [#780](https://github.com/knuckleswtf/scribe/pull/780)
+- Allow passing of custom HTML attributes to external UIs [#780](https://github.com/knuckleswtf/scribe/pull/780)
+
+## Fixed
+- Fix `config:diff` command for tuple configs
+
+# 4.28.0 (25 December 2023 🎄)
+See [the announcement post](https://scribe.knuckles.wtf/blog/laravel-v4-28) for more details.
+
+## Added
+- **Support for external UIs**: You can now use an external client-side UI such as [Scalar](https://github.com/scalar/scalar). Details in [the config reference](https://scribe.knuckles.wtf/laravel/reference/config#theme).
+- **Configurable strategies**: You can now configure strategies individually, by using the _tuple_ format. A tuple is an array with two elements; the first is the strategy class, and the second is the settings array. For instance, you can configure response calls to only be used on certain endpoints:
+  ```php
+  'responses' => [
+      Strategies\Responses\UseResponseAttributes::class,
+      [
+        Strategies\Responses\ResponseCalls::class,
+        ['only' => ['GET *']],
+      ]
+  ],
+  ```
+- **Disable strategies per endpoint**: All strategies (including custom strategies) now support the `only` and `except` settings, allowing you to specify the routes you want them to be applied to, or the opposite.
+    ```php
+  'bodyParameters' => [
+      [
+        Strategies\BodyParameters\GetFromInlineValidator::class,
+        ['except' => ['POST /special-endpoint']],
+      ],
+      [
+        App\Docs\Strategies\SomeCoolStuff::class,
+        ['only' => ['POST /cool-endpoint']],
+      ],
+  ],
+  ```
+- **Easily override returned values**: The new `override` strategy (also a tuple) is a simple way to say "merge these values into the result of other strategies", without having to write a whole strategy. A common use case is for adding headers:
+  ```php
+  'headers' => [
+      Strategies\Responses\UseHeaderAttribute::class,
+      [
+        'override',
+        [
+          'Content-Type' => 'application/json'],
+          'Accept' => 'application/json'],
+      ]
+  ],
+  ```
+- **Better route matching**: Route matching now works with both method and URL. Previously, in you could only specify route name or URL. Now you can also specify "GET /path", "GET path", or "GET pa*".
+
+# 4.27.0 (21 December 2023)
+## Modified
+- Allow Symfony v7
+
+# 4.26.0 (21 November 2023)
+## Added
+- Support specifying Example: null in annotations ([#755](https://github.com/knuckleswtf/scribe/pull/755)
+- Include database-generated values in models created via factoryCreate ([#753](https://github.com/knuckleswtf/scribe/pull/753)
+
+## Fixed
+- Parsing of nested fields in validation rules ([#749](https://github.com/knuckleswtf/scribe/pull/749))
+- Enum values not displaying in nested objects ([#740](https://github.com/knuckleswtf/scribe/pull/740))
+- Enum values not getting written to HTML ([#759](https://github.com/knuckleswtf/scribe/pull/759))
+
+
+# 4.25.0 (30 September 2023)
+## Added
+- Support wildcards in `groups.order` (top-level only) ([#723](https://github.com/knuckleswtf/scribe/pull/731))
+
+# 4.24.0 (16 September 2023)
+## Added
+- Support dependency injection in FormRequests ([84078358ce](https://github.com/knuckleswtf/scribe/commit/84078358ce32ff0656a9ab03f062e952f721f1a2))
+- Include `auth.extra_info` in OpenAPI security scheme ([#727](https://github.com/knuckleswtf/scribe/pull/727))
+- Support dynamic base URL ([#723](https://github.com/knuckleswtf/scribe/pull/723))
+
+## Fixed
+- Generate proper sample for array of objects ([#720](https://github.com/knuckleswtf/scribe/pull/720))
+
+# 4.23.1 (25 August 2023)
+## Fixed
+- Break in attributes due to enum support ([4c49e81e0](https://github.com/knuckleswtf/scribe/commit/4c49e81e0a6f4a257c3945a139b9a3bf35d85b2b))
+
+# 4.23.0 (24 August 2023)
+## Added
+- Support for enums: you can now specify the allowed values of a parameter ([#713](https://github.com/knuckleswtf/scribe/pull/713))
+
+## Modified
+- Exclude Authorization header from generated OpenAPI spec, per spec ([#714](https://github.com/knuckleswtf/scribe/pull/714))
+
+## Fixed
+- Improve endpointId generation ([#700](https://github.com/knuckleswtf/scribe/pull/700))
+- Improve empty checks in OpenAPI spec generation ([#712](https://github.com/knuckleswtf/scribe/pull/712))
+- Don't export auth.use_value to Postman ([6a9d51b3a2](https://github.com/knuckleswtf/scribe/commit/6a9d51b3a215a89e8b8af47f796ffaa10993c171))
+
+# 4.22.0 (1 July 2023)
+## Added
+- Make included package attributes extensible ([#680](https://github.com/knuckleswtf/scribe/pull/680))
+
+## Fixed
+- Ensure example code supports multipart/form-data without files ([#685](https://github.com/knuckleswtf/scribe/pull/685))
+- Fix path traversal on Laravel 10 ([#686](https://github.com/knuckleswtf/scribe/pull/686))
+- Properly support floats in docs UI ([#693](https://github.com/knuckleswtf/scribe/pull/693))
+- Properly normalise URLs with multi-word Eloquent parameters ([#670](https://github.com/knuckleswtf/scribe/pull/670))
+- Also show empty array query parameters in Postman ([#691](https://github.com/knuckleswtf/scribe/pull/691))
+
+
+# 4.21.2 (5 June 2023)
+## Fixed
+- Typehint interface in CustomTranslationsLoader for maximum compatibility ([#679](https://github.com/knuckleswtf/scribe/pull/679))
+
+
 # 4.21.1 (3 June 2023)
 ## Fixed
 - Load translations on demand to get around false negative for `runningInConsole()` ([963340f2](https://github.com/knuckleswtf/scribe/commit/963340f2bea654bb267286f807bcdf15b699d06e))

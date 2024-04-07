@@ -12,6 +12,8 @@ class Parameter extends BaseDTO
     public bool $required = false;
     public mixed $example = null;
     public string $type = 'string';
+    public array $enumValues = [];
+    public bool $exampleWasSpecified = false;
 
     public function __construct(array $parameters = [])
     {

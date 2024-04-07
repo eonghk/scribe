@@ -6,20 +6,21 @@ namespace Knuckles\Camel;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Knuckles\Camel\Output\OutputEndpointData;
+use Knuckles\Scribe\Tools\PathConfig;
 use Knuckles\Scribe\Tools\Utils;
 use Symfony\Component\Yaml\Yaml;
 
 
 class Camel
 {
-    public static function cacheDir(string $docsName = 'scribe'): string
+    public static function cacheDir(PathConfig $paths): string
     {
-        return ".$docsName/endpoints.cache";
+        return $paths->intermediateOutputPath('endpoints.cache');
     }
 
-    public static function camelDir(string $docsName = 'scribe'): string
+    public static function camelDir(PathConfig $paths): string
     {
-        return ".$docsName/endpoints";
+        return $paths->intermediateOutputPath('endpoints');
     }
 
     /**
@@ -121,7 +122,26 @@ class Camel
 
         // First, sort groups
         $groupsOrder = Utils::getTopLevelItemsFromMixedConfigList($configFileOrder);
-        $groupedEndpoints = collect($groupedEndpoints)->sortKeysUsing(self::getOrderListComparator($groupsOrder));
+        $groupsCollection = collect($groupedEndpoints);
+        $wildcardPosition = array_search('*', $groupsOrder);
+        if ($wildcardPosition !== false) {
+            $promotedGroups = array_splice($groupsOrder, 0, $wildcardPosition);
+            $demotedGroups = array_splice($groupsOrder, 1);
+
+            $promotedOrderedGroups = $groupsCollection->filter(fn ($group, $groupName) => in_array($groupName, $promotedGroups))
+                ->sortKeysUsing(self::getOrderListComparator($promotedGroups));
+            $demotedOrderedGroups = $groupsCollection->filter(fn ($group, $groupName) => in_array($groupName, $demotedGroups))
+                ->sortKeysUsing(self::getOrderListComparator($demotedGroups));
+
+            $nonWildcardGroups = array_merge($promotedGroups, $demotedGroups);
+            $wildCardOrderedGroups = $groupsCollection->filter(fn ($group, $groupName) => !in_array($groupName, $nonWildcardGroups))
+                ->sortKeysUsing(self::getOrderListComparator($demotedGroups));
+
+            $groupedEndpoints = $promotedOrderedGroups->merge($wildCardOrderedGroups)
+                ->merge($demotedOrderedGroups);
+        } else {
+            $groupedEndpoints = $groupsCollection->sortKeysUsing(self::getOrderListComparator($groupsOrder));
+        }
 
         return $groupedEndpoints->map(function (array $group, string $groupName) use ($configFileOrder) {
             $sortedEndpoints = collect($group['endpoints']);
@@ -192,7 +212,7 @@ class Camel
      *
      * @param array $order
      */
-    public static function getOrderListComparator(array $order): \Closure
+    protected static function getOrderListComparator(array $order): \Closure
     {
         return function ($a, $b) use ($order) {
             $indexOfA = array_search($a, $order);

@@ -4,7 +4,7 @@
 @endphp
 ```javascript
 const url = new URL(
-    "{{ rtrim($baseUrl, '/') }}/{{ ltrim($endpoint->boundUri, '/') }}"
+    "{!! rtrim($baseUrl, '/') !!}/{{ ltrim($endpoint->boundUri, '/') }}"
 );
 @if(count($endpoint->cleanQueryParameters))
 
@@ -24,7 +24,7 @@ const headers = {
 };
 @endif
 
-@if($endpoint->hasFiles())
+@if($endpoint->hasFiles() || (isset($endpoint->headers['Content-Type']) && $endpoint->headers['Content-Type'] == 'multipart/form-data' && count($endpoint->cleanBodyParameters)))
 const body = new FormData();
 @foreach($endpoint->cleanBodyParameters as $parameter => $value)
 @foreach( u::getParameterNamesAndValuesForFormData($parameter, $value) as $key => $actualValue)
@@ -49,11 +49,11 @@ fetch(url, {
 @if(count($endpoint->headers))
     headers,
 @endif
-@if($endpoint->hasFiles())
+@if($endpoint->hasFiles() || (isset($endpoint->headers['Content-Type']) && $endpoint->headers['Content-Type'] == 'multipart/form-data' && count($endpoint->cleanBodyParameters)))
     body,
 @elseif(count($endpoint->cleanBodyParameters))
 @if ($endpoint->headers['Content-Type'] == 'application/x-www-form-urlencoded')
-    body: body,
+    body,
 @else
     body: JSON.stringify(body),
 @endif

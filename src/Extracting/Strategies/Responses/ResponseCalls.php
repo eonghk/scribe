@@ -30,28 +30,27 @@ class ResponseCalls extends Strategy
 
     protected array $previousConfigs = [];
 
-    public function __invoke(ExtractedEndpointData $endpointData, array $routeRules = []): ?array
+    public function __invoke(ExtractedEndpointData $endpointData, array $settings = []): ?array
     {
-        return $this->makeResponseCallIfConditionsPass($endpointData, $routeRules);
+        return $this->makeResponseCallIfConditionsPass($endpointData, $settings);
     }
 
-    public function makeResponseCallIfConditionsPass(ExtractedEndpointData $endpointData, array $routeRules): ?array
+    public function makeResponseCallIfConditionsPass(ExtractedEndpointData $endpointData, array $settings): ?array
     {
-        $rulesToApply = $routeRules['response_calls'] ?? [];
-        if (!$this->shouldMakeApiCall($endpointData, $rulesToApply)) {
+        if (!$this->shouldMakeApiCall($endpointData)) {
             return null;
         }
 
-        return $this->makeResponseCall($endpointData, $rulesToApply);
+        return $this->makeResponseCall($endpointData, $settings);
     }
 
-    public function makeResponseCall(ExtractedEndpointData $endpointData, array $rulesToApply): ?array
+    public function makeResponseCall(ExtractedEndpointData $endpointData, array $settings): ?array
     {
-        $this->configureEnvironment($rulesToApply);
+        $this->configureEnvironment($settings);
 
         // Mix in parsed parameters with manually specified parameters.
-        $bodyParameters = array_merge($endpointData->cleanBodyParameters, $rulesToApply['bodyParams'] ?? []);
-        $queryParameters = array_merge($endpointData->cleanQueryParameters, $rulesToApply['queryParams'] ?? []);
+        $bodyParameters = array_merge($endpointData->cleanBodyParameters, $settings['bodyParams'] ?? []);
+        $queryParameters = array_merge($endpointData->cleanQueryParameters, $settings['queryParams'] ?? []);
         $urlParameters = $endpointData->cleanUrlParameters;
         $headers = $endpointData->headers;
 
@@ -72,7 +71,7 @@ class ResponseCalls extends Strategy
             }
         }
 
-        $hardcodedFileParams = $rulesToApply['fileParams'] ?? [];
+        $hardcodedFileParams = $settings['fileParams'] ?? [];
         $hardcodedFileParams = collect($hardcodedFileParams)->map(function ($filePath) {
             $fileName = basename($filePath);
             return new UploadedFile(
@@ -82,7 +81,7 @@ class ResponseCalls extends Strategy
         $fileParameters = array_merge($endpointData->fileParameters, $hardcodedFileParams);
 
         $request = $this->prepareRequest(
-            $endpointData->route, $endpointData->uri, $rulesToApply, $urlParameters,
+            $endpointData->route, $endpointData->uri, $settings, $urlParameters,
             $bodyParameters, $queryParameters, $fileParameters, $headers
         );
 
@@ -110,19 +109,19 @@ class ResponseCalls extends Strategy
     }
 
     /**
-     * @param array $rulesToApply
+     * @param array $settings
      *
      * @return void
      */
-    private function configureEnvironment(array $rulesToApply)
+    private function configureEnvironment(array $settings)
     {
         $this->startDbTransaction();
-        $this->setLaravelConfigs($rulesToApply['config'] ?? []);
+        $this->setLaravelConfigs($settings['config'] ?? []);
     }
 
     /**
      * @param Route $route
-     * @param array $rulesToApply
+     * @param array $settings
      * @param array $urlParams
      * @param array $bodyParams
      * @param array $queryParams
@@ -132,13 +131,15 @@ class ResponseCalls extends Strategy
      *
      * @return Request
      */
-    protected function prepareRequest(Route $route, string $url, array $rulesToApply, array $urlParams,
-        array $bodyParams, array $queryParams, array $fileParameters, array $headers): Request
+    protected function prepareRequest(
+        Route $route, string $url, array $settings, array $urlParams,
+        array $bodyParams, array $queryParams, array $fileParameters, array $headers
+    ): Request
     {
         $uri = Utils::getUrlWithBoundParameters($url, $urlParams);
         $routeMethods = $this->getMethods($route);
         $method = array_shift($routeMethods);
-        $cookies = $rulesToApply['cookies'] ?? [];
+        $cookies = $settings['cookies'] ?? [];
 
         // Note that we initialise the request with the bodyParams here
         // and later still add them to the ParameterBag (`addBodyParameters`)
@@ -311,32 +312,14 @@ class ResponseCalls extends Strategy
         return $response;
     }
 
-    protected function shouldMakeApiCall(ExtractedEndpointData $endpointData, array $rulesToApply): bool
+    protected function shouldMakeApiCall(ExtractedEndpointData $endpointData): bool
     {
-        $allowedMethods = $rulesToApply['methods'] ?? [];
-        if (empty($allowedMethods)) {
-            return false;
-        }
-
         // Don't attempt a response call if there are already successful responses
         if ($endpointData->responses->hasSuccessResponse()) {
             return false;
         }
 
-        if (is_string($allowedMethods) && $allowedMethods == '*') {
-            return true;
-        }
-
-        if (array_search('*', $allowedMethods) !== false) {
-            return true;
-        }
-
-        $routeMethods = $this->getMethods($endpointData->route);
-        if (in_array(array_shift($routeMethods), $allowedMethods)) {
-            return true;
-        }
-
-        return false;
+        return true;
     }
 
     /**
@@ -367,5 +350,32 @@ class ResponseCalls extends Strategy
         }
 
         return $formattedHeaders;
+    }
+
+    /**
+     * @param array $only The routes which this strategy should be applied to. Can not be specified with $except.
+     *   Specify route names ("users.index", "users.*"), or method and path ("GET *", "POST /safe/*").
+     * @param array $except The routes which this strategy should be applied to. Can not be specified with $only.
+     *   Specify route names ("users.index", "users.*"), or method and path ("GET *", "POST /safe/*").
+     * @param array $config Any extra Laravel config() values to before starting the response call.
+     * @param array $queryParams Query params to always send with the response call. Key-value array.
+     * @param array $bodyParams Body params to always send with the response call. Key-value array.
+     * @param array $fileParams File params to always send with the response call. Key-value array. Key is param name, value is file path.
+     * @param array $cookies Cookies to always send with the response call. Key-value array.
+     * @return array
+     */
+    public static function withSettings(
+        array $only = ['GET *'],
+        array $except = [],
+        array $config = [],
+        array $queryParams = [],
+        array $bodyParams = [],
+        array $fileParams = [
+            // 'key' => 'storage/app/image.png',
+        ],
+        array $cookies = [],
+    ): array
+    {
+        return static::wrapWithSettings(...get_defined_vars());
     }
 }

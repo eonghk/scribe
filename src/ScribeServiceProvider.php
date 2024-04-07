@@ -3,6 +3,7 @@
 namespace Knuckles\Scribe;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 use Knuckles\Scribe\Commands\DiffConfig;
 use Knuckles\Scribe\Commands\GenerateDocumentation;
 use Knuckles\Scribe\Commands\MakeStrategy;
@@ -44,7 +45,7 @@ class ScribeServiceProvider extends ServiceProvider
     protected function bootRoutes()
     {
         if (
-            config('scribe.type', 'static') === 'laravel' &&
+            Str::endsWith(config('scribe.type', 'static'), 'laravel') &&
             config('scribe.laravel.add_routes', false)
         ) {
             $routesPath = Utils::isLumen() ? __DIR__ . '/../routes/lumen.php' : __DIR__ . '/../routes/laravel.php';
@@ -55,7 +56,7 @@ class ScribeServiceProvider extends ServiceProvider
     protected function configureTranslations(): void
     {
         $this->publishes([
-            __DIR__.'/../lang/' => $this->app->langPath(),
+            __DIR__ . '/../lang/' => $this->app->langPath(),
         ], 'scribe-translations');
 
         $this->loadTranslationsFrom($this->app->langPath('scribe.php'), 'scribe');
@@ -77,6 +78,7 @@ class ScribeServiceProvider extends ServiceProvider
             'examples' => 'partials/example-requests',
             'themes' => 'themes',
             'markdown' => 'markdown',
+            'external' => 'external',
         ];
         foreach ($viewGroups as $group => $path) {
             $this->publishes([
@@ -92,6 +94,12 @@ class ScribeServiceProvider extends ServiceProvider
         ], 'scribe-config');
 
         $this->mergeConfigFrom(__DIR__ . '/../config/scribe.php', 'scribe');
+        // This is really only used in internal testing,
+        // but we also make it publishable for easy migration, so there's no .
+        $this->publishes([
+            __DIR__ . '/../config/scribe.php' => $this->app->configPath('scribe.php'),
+        ], 'scribe-config');
+        $this->mergeConfigFrom(__DIR__ . '/../config/scribe_new.php', 'scribe_new');
     }
 
     protected function registerCommands(): void
@@ -112,7 +120,7 @@ class ScribeServiceProvider extends ServiceProvider
     public function loadCustomTranslationLayer(): void
     {
         $this->app->extend('translation.loader', function ($defaultFileLoader) {
-            return new CustomTranslationsLoader($defaultFileLoader);
+            return app(CustomTranslationsLoader::class, ['loader' => $defaultFileLoader]);
         });
         $this->app->forgetInstance('translator');
         self::$customTranslationLayerLoaded = true;
